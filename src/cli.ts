@@ -1,4 +1,4 @@
-import { parseArgs, type ParseArgsConfig } from 'node:util';
+import { parseArgs, type ParseArgsConfig, type ParseArgsOptionsConfig } from 'node:util';
 import { runConnection, printConnectionUsage } from './commands/connection.js';
 import { runSetKey, printConfigUsage } from './commands/config.js';
 import { runSend, printSendUsage } from './commands/send.js';
@@ -23,6 +23,11 @@ const GLOBAL_OPTIONS = {
   help: { type: 'boolean', short: 'h', default: false },
 } as const satisfies ParseArgsConfig['options'];
 
+const SET_KEY_OPTIONS = {
+  json: { type: 'boolean', default: false },
+  help: { type: 'boolean', short: 'h', default: false },
+} as const satisfies ParseArgsConfig['options'];
+
 const SEND_OPTIONS = {
   ...GLOBAL_OPTIONS,
   channel: { type: 'string' },
@@ -41,7 +46,7 @@ function printRootUsage(): void {
 Usage:
   trigv send --channel <slug> --title <text> [options]
   trigv connection [options]
-  trigv config set-key <api-key> [options]
+  trigv config set-key [options]
 
 Global options:
   --json        Output JSON to stdout
@@ -50,7 +55,7 @@ Global options:
 
 Authentication:
   TRIGV_API_KEY env var, macOS Keychain, or ~/.config/trigv/credentials
-  Run \`trigv config set-key <key>\` to store a key locally.
+  Run \`trigv config set-key\` to store a key locally (stdin or hidden prompt).
 
 Documentation: https://github.com/Trigv/trigv-cli`);
 }
@@ -61,6 +66,20 @@ function asString(value: string | boolean | undefined): string | undefined {
 
 function asBoolean(value: string | boolean | undefined): boolean {
   return value === true;
+}
+
+function parseStrictArgs<T extends ParseArgsOptionsConfig>(config: { args: string[]; options: T }) {
+  try {
+    return parseArgs({
+      args: config.args,
+      options: config.options,
+      strict: true,
+      allowPositionals: false,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Invalid command syntax';
+    throw new ValidationError(message);
+  }
 }
 
 function errorToJson(error: TrigvError): JsonError {
@@ -176,7 +195,7 @@ export function handleError(error: unknown, json: boolean): number {
 
 export async function run(argv: string[]): Promise<number> {
   const args = argv.slice(2);
-  const [command, subcommand, ...rest] = args;
+  const [command, subcommand] = args;
 
   if (!command || command === '--help' || command === '-h') {
     printRootUsage();
@@ -185,11 +204,9 @@ export async function run(argv: string[]): Promise<number> {
 
   try {
     if (command === 'send') {
-      const { values } = parseArgs({
-        args,
+      const { values } = parseStrictArgs({
+        args: args.slice(1),
         options: SEND_OPTIONS,
-        allowPositionals: true,
-        strict: false,
       });
 
       if (values.help) {
@@ -213,11 +230,9 @@ export async function run(argv: string[]): Promise<number> {
     }
 
     if (command === 'connection') {
-      const { values } = parseArgs({
-        args,
+      const { values } = parseStrictArgs({
+        args: args.slice(1),
         options: GLOBAL_OPTIONS,
-        allowPositionals: true,
-        strict: false,
       });
 
       if (values.help) {
@@ -233,11 +248,9 @@ export async function run(argv: string[]): Promise<number> {
     }
 
     if (command === 'config' && subcommand === 'set-key') {
-      const { values } = parseArgs({
-        args,
-        options: GLOBAL_OPTIONS,
-        allowPositionals: true,
-        strict: false,
+      const { values } = parseStrictArgs({
+        args: args.slice(2),
+        options: SET_KEY_OPTIONS,
       });
 
       if (values.help) {
@@ -245,9 +258,7 @@ export async function run(argv: string[]): Promise<number> {
         return EXIT_SUCCESS;
       }
 
-      const apiKey = rest[0];
       await runSetKey({
-        apiKey,
         json: asBoolean(values.json),
       });
       return EXIT_SUCCESS;
@@ -266,11 +277,9 @@ export async function run(argv: string[]): Promise<number> {
       args.includes('--json') ||
       (() => {
         try {
-          const { values } = parseArgs({
-            args,
+          const { values } = parseStrictArgs({
+            args: args.slice(1),
             options: GLOBAL_OPTIONS,
-            allowPositionals: true,
-            strict: false,
           });
           return asBoolean(values.json);
         } catch {

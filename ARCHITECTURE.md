@@ -76,7 +76,7 @@ Build with `tsup` (same as `trigv-node`). Binary entry: `dist/cli.js` with sheba
 |---------|----------|---------------|
 | `trigv send` | `POST /v1/events` | `--channel`, `--title` |
 | `trigv connection` | `GET /v1/connection` | — |
-| `trigv config set-key <key>` | — (local only) | API key argument |
+| `trigv config set-key` | — (local only) | API key via stdin or hidden prompt |
 
 ### `trigv send` flags
 

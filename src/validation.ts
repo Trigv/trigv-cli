@@ -10,8 +10,12 @@ function trim(value: string | undefined): string | undefined {
   return trimmed === '' ? undefined : trimmed;
 }
 
+function codePointCount(value: string): number {
+  return Array.from(value).length;
+}
+
 function assertMaxLength(field: string, value: string, max: number): void {
-  if (value.length > max) {
+  if (codePointCount(value) > max) {
     throw new ValidationError(`${field} must be at most ${max} characters`, {
       [field]: [`${field} must be at most ${max} characters`],
     });

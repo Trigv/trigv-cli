@@ -39,10 +39,16 @@ Create a workspace API key at [app.trigv.com](https://app.trigv.com). Keys look 
 2. macOS Keychain (when available)
 3. `~/.config/trigv/credentials` (mode `0600`)
 
-Store a key locally:
+Store a key locally (recommended — interactive hidden prompt):
 
 ```bash
-trigv config set-key trgv_your_api_key
+trigv config set-key
+```
+
+For automation, pipe from an environment variable (avoids putting the secret in shell history):
+
+```bash
+printf '%s' "$TRIGV_API_KEY" | trigv config set-key
 ```
 
 Verify the key:

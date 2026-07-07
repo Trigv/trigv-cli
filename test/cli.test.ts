@@ -127,7 +127,7 @@ describe('CLI run()', () => {
 
     const { runSetKey } = await import('../src/commands/config.js');
     await runSetKey({
-      apiKey: API_KEY,
+      readInput: async () => API_KEY,
       json: true,
       credentialsDeps: {
         platformFn: () => 'linux',
@@ -138,6 +138,7 @@ describe('CLI run()', () => {
     const output = JSON.parse(String(stdoutSpy.mock.calls.at(-1)?.[0]));
     expect(output.ok).toBe(true);
     expect(output.stored_in).toBe(credPath);
+    expect(JSON.stringify(output)).not.toContain(API_KEY);
   });
 
   it('returns API exit on 404', async () => {
@@ -166,5 +167,138 @@ describe('CLI run()', () => {
   it('returns success for help', async () => {
     const code = await run(['node', 'trigv', 'send', '--help']);
     expect(code).toBe(EXIT_SUCCESS);
+  });
+
+  it('rejects unknown send option', async () => {
+    process.env.TRIGV_API_KEY = API_KEY;
+    const code = await run([
+      'node',
+      'trigv',
+      'send',
+      '--channel',
+      'general',
+      '--title',
+      'x',
+      '--unknown',
+      'y',
+    ]);
+    expect(code).toBe(EXIT_VALIDATION);
+  });
+
+  it('rejects unknown connection option', async () => {
+    process.env.TRIGV_API_KEY = API_KEY;
+    const code = await run(['node', 'trigv', 'connection', '--bogus']);
+    expect(code).toBe(EXIT_VALIDATION);
+  });
+
+  it('rejects extra positional for send', async () => {
+    process.env.TRIGV_API_KEY = API_KEY;
+    const code = await run([
+      'node',
+      'trigv',
+      'send',
+      'extra',
+      '--channel',
+      'general',
+      '--title',
+      'x',
+    ]);
+    expect(code).toBe(EXIT_VALIDATION);
+  });
+
+  it('rejects extra positional for connection', async () => {
+    process.env.TRIGV_API_KEY = API_KEY;
+    const code = await run(['node', 'trigv', 'connection', 'extra']);
+    expect(code).toBe(EXIT_VALIDATION);
+  });
+
+  it('rejects extra positional for config set-key', async () => {
+    const code = await run(['node', 'trigv', 'config', 'set-key', API_KEY]);
+    expect(code).toBe(EXIT_VALIDATION);
+  });
+
+  it('rejects --base-url for config set-key', async () => {
+    const code = await run([
+      'node',
+      'trigv',
+      'config',
+      'set-key',
+      '--base-url',
+      'http://example.test/api',
+    ]);
+    expect(code).toBe(EXIT_VALIDATION);
+  });
+
+  it('accepts --json for config set-key help path', async () => {
+    const code = await run(['node', 'trigv', 'config', 'set-key', '--help']);
+    expect(code).toBe(EXIT_SUCCESS);
+  });
+
+  it('accepts --json flag parsing for config set-key', async () => {
+    const { runSetKey } = await import('../src/commands/config.js');
+    const { mkdtemp } = await import('node:fs/promises');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const dir = await mkdtemp(join(tmpdir(), 'trigv-cli-setkey-json-'));
+    const credPath = join(dir, 'credentials');
+
+    await runSetKey({
+      readInput: async () => API_KEY,
+      json: true,
+      credentialsDeps: {
+        platformFn: () => 'linux',
+        credentialsPath: credPath,
+      },
+    });
+
+    const output = JSON.parse(String(stdoutSpy.mock.calls.at(-1)?.[0]));
+    expect(output.ok).toBe(true);
+  });
+
+  it('rejects empty set-key input', async () => {
+    const { runSetKey } = await import('../src/commands/config.js');
+    await expect(
+      runSetKey({
+        readInput: async () => '   ',
+        credentialsDeps: { platformFn: () => 'linux', credentialsPath: '/tmp/unused' },
+      }),
+    ).rejects.toThrow(ConfigError);
+  });
+
+  it('never prints API key in set-key JSON output', async () => {
+    const { mkdtemp } = await import('node:fs/promises');
+    const { tmpdir } = await import('node:os');
+    const { join } = await import('node:path');
+    const dir = await mkdtemp(join(tmpdir(), 'trigv-cli-setkey-secret-'));
+    const credPath = join(dir, 'credentials');
+
+    const { runSetKey } = await import('../src/commands/config.js');
+    await runSetKey({
+      readInput: async () => API_KEY,
+      json: true,
+      credentialsDeps: {
+        platformFn: () => 'linux',
+        credentialsPath: credPath,
+      },
+    });
+    const output = JSON.parse(String(stdoutSpy.mock.calls.at(-1)?.[0]));
+    expect(JSON.stringify(output)).not.toContain(API_KEY);
+  });
+
+  it('runs valid send command', async () => {
+    process.env.TRIGV_API_KEY = API_KEY;
+    const fetch = mockFetch(
+      () => new Response(JSON.stringify({ event: sampleEvent }), { status: 202 }),
+    );
+
+    const { runSend } = await import('../src/commands/send.js');
+    await expect(
+      runSend({
+        channel: 'general',
+        title: 'Hello',
+        fetch,
+        credentialsDeps: { readKeychain: () => API_KEY },
+      }),
+    ).resolves.toBeUndefined();
   });
 });

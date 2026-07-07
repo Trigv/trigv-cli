@@ -1,7 +1,8 @@
-import { mkdtemp, readFile, stat } from 'node:fs/promises';
+import { chmod, mkdtemp, readFile, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { ConfigError } from '../src/errors.js';
 import {
   readCredentialsFile,
   resolveApiKey,
@@ -51,6 +52,23 @@ describe('credentials', () => {
     expect(key).toBe('trgv_file_key_abcdefghijklmnopqrstuvwxyz12345');
   });
 
+  it('tightens permissions on an existing credentials file', async () => {
+    if (process.platform === 'win32') {
+      return;
+    }
+
+    const dir = await mkdtemp(join(tmpdir(), 'trigv-cli-'));
+    const path = join(dir, 'credentials');
+    await writeFile(path, '{"api_key":"old"}\n', { mode: 0o644 });
+    await chmod(path, 0o644);
+
+    await writeCredentialsFile(path, 'trgv_stored_key_abcdefghijklmnopqrstuvwxyz1234');
+
+    const fileStat = await stat(path);
+    expect(fileStat.mode & 0o777).toBe(0o600);
+    expect(await readCredentialsFile(path)).toBe('trgv_stored_key_abcdefghijklmnopqrstuvwxyz1234');
+  });
+
   it('writes credentials file with mode 0600', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'trigv-cli-'));
     const path = join(dir, 'nested', 'credentials');
@@ -59,11 +77,63 @@ describe('credentials', () => {
     const content = await readCredentialsFile(path);
     expect(content).toBe('trgv_stored_key_abcdefghijklmnopqrstuvwxyz1234');
 
-    const fileStat = await stat(path);
-    expect(fileStat.mode & 0o777).toBe(0o600);
+    if (process.platform !== 'win32') {
+      const fileStat = await stat(path);
+      expect(fileStat.mode & 0o777).toBe(0o600);
+      const dirStat = await stat(join(dir, 'nested'));
+      expect(dirStat.mode & 0o777).toBe(0o700);
+    }
 
     const raw = await readFile(path, 'utf8');
     expect(JSON.parse(raw)).toEqual({ api_key: 'trgv_stored_key_abcdefghijklmnopqrstuvwxyz1234' });
+  });
+
+  it('fails when directory chmod fails on POSIX', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'trigv-cli-'));
+    const path = join(dir, 'credentials');
+
+    await expect(
+      writeCredentialsFile(path, 'trgv_stored_key_abcdefghijklmnopqrstuvwxyz1234', {
+        platformFn: () => 'linux',
+        chmodFn: async (_target, mode) => {
+          if (mode === 0o700) {
+            throw new Error('chmod denied');
+          }
+        },
+      }),
+    ).rejects.toThrow(ConfigError);
+  });
+
+  it('fails when credentials file chmod fails on POSIX', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'trigv-cli-'));
+    const path = join(dir, 'credentials');
+
+    await expect(
+      writeCredentialsFile(path, 'trgv_stored_key_abcdefghijklmnopqrstuvwxyz1234', {
+        platformFn: () => 'linux',
+        chmodFn: async (_target, mode) => {
+          if (mode === 0o600) {
+            throw new Error('chmod denied');
+          }
+        },
+      }),
+    ).rejects.toThrow(ConfigError);
+  });
+
+  it('skips chmod on Windows', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'trigv-cli-'));
+    const path = join(dir, 'credentials');
+    const chmodFn = vi.fn(async () => {
+      throw new Error('chmod should not run on Windows');
+    });
+
+    await writeCredentialsFile(path, 'trgv_stored_key_abcdefghijklmnopqrstuvwxyz1234', {
+      platformFn: () => 'win32',
+      chmodFn,
+    });
+
+    expect(chmodFn).not.toHaveBeenCalled();
+    expect(await readCredentialsFile(path)).toBe('trgv_stored_key_abcdefghijklmnopqrstuvwxyz1234');
   });
 
   it('stores to file when not on darwin', async () => {

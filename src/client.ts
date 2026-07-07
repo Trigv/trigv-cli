@@ -10,6 +10,7 @@ import {
   TimeoutError,
   ValidationError,
 } from './errors.js';
+import { parseRetryAfterHeader, retryBackoffMs, sleep } from './retry.js';
 import type {
   ConnectionResult,
   SendEventParams,
@@ -25,14 +26,6 @@ interface JsonBody {
   event?: SendEventResult['event'];
   workspace?: ConnectionResult['workspace'];
   api_key?: ConnectionResult['api_key'];
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function jitter(maxMs: number): number {
-  return Math.floor(Math.random() * maxMs);
 }
 
 function parseJson(text: string): JsonBody | null {
@@ -69,6 +62,20 @@ function isRetryableStatus(status: number): boolean {
   return status === 429 || status === 502 || status === 503 || status === 504;
 }
 
+function httpErrorFromResponse(
+  status: number,
+  body: JsonBody | null,
+  retryAfterHeader: string | null,
+): never {
+  if (status === 429) {
+    const message = body?.message ?? `Trigv API returned HTTP ${status}`;
+    const retryAfterMs = parseRetryAfterHeader(retryAfterHeader);
+    throw new RateLimitError(message, !isMonthlyLimitMessage(message), retryAfterMs);
+  }
+
+  errorFromResponse(status, body);
+}
+
 export class Trigv {
   private readonly apiKey: string;
   private readonly baseUrl: string;
@@ -79,6 +86,18 @@ export class Trigv {
   constructor(options: TrigvClientOptions) {
     if (!options.apiKey || options.apiKey.trim() === '') {
       throw new ValidationError('apiKey is required');
+    }
+
+    if (options.maxRetries !== undefined && options.maxRetries < 0) {
+      throw new ValidationError('maxRetries must be zero or greater', {
+        maxRetries: ['maxRetries must be zero or greater'],
+      });
+    }
+
+    if (options.timeout !== undefined && options.timeout <= 0) {
+      throw new ValidationError('timeout must be greater than zero', {
+        timeout: ['timeout must be greater than zero'],
+      });
     }
 
     this.apiKey = options.apiKey.trim();
@@ -165,8 +184,23 @@ export class Trigv {
           throw error;
         }
 
-        const backoff = 500 * 2 ** attempt + jitter(250);
-        await sleep(backoff);
+        let waitMs = retryBackoffMs(attempt);
+        if (error instanceof RateLimitError && error.retryAfterMs !== undefined) {
+          waitMs = error.retryAfterMs;
+        }
+
+        const waitAbort = new AbortController();
+        const waitTimeout = setTimeout(() => waitAbort.abort(new TimeoutError()), this.timeout);
+        try {
+          await sleep(waitMs, waitAbort.signal);
+        } catch (waitError) {
+          if (waitError instanceof TimeoutError) {
+            throw waitError;
+          }
+          throw new TimeoutError();
+        } finally {
+          clearTimeout(waitTimeout);
+        }
       }
     }
 
@@ -203,7 +237,7 @@ export class Trigv {
         return parseSuccess(response.status, parsed);
       }
 
-      errorFromResponse(response.status, parsed);
+      httpErrorFromResponse(response.status, parsed, response.headers.get('Retry-After'));
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         throw new TimeoutError();

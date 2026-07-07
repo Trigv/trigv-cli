@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Trigv } from '../src/client.js';
-import { AuthenticationError, NotFoundError, ValidationError } from '../src/errors.js';
+import {
+  AuthenticationError,
+  NotFoundError,
+  RateLimitError,
+  ValidationError,
+} from '../src/errors.js';
 
 const API_KEY = 'trgv_testkey1_abcdefghijklmnopqrstuvwxyz123456';
 
@@ -142,5 +147,142 @@ describe('Trigv client', () => {
     });
     const client = new Trigv({ apiKey: API_KEY, fetch, maxRetries: 0 });
     await client.sendEvent({ channel: 'general', title: 'x' });
+  });
+
+  it('rejects negative maxRetries', () => {
+    expect(() => new Trigv({ apiKey: API_KEY, maxRetries: -1 })).toThrow(ValidationError);
+  });
+
+  it('accepts zero maxRetries', () => {
+    expect(() => new Trigv({ apiKey: API_KEY, maxRetries: 0 })).not.toThrow();
+  });
+
+  it('accepts positive maxRetries', () => {
+    expect(() => new Trigv({ apiKey: API_KEY, maxRetries: 2 })).not.toThrow();
+  });
+
+  it('rejects zero timeout', () => {
+    expect(() => new Trigv({ apiKey: API_KEY, timeout: 0 })).toThrow(ValidationError);
+  });
+
+  it('rejects negative timeout', () => {
+    expect(() => new Trigv({ apiKey: API_KEY, timeout: -1 })).toThrow(ValidationError);
+  });
+
+  it('accepts positive timeout', () => {
+    expect(() => new Trigv({ apiKey: API_KEY, timeout: 5000 })).not.toThrow();
+  });
+
+  it('retries burst 429 with Retry-After seconds', async () => {
+    let calls = 0;
+    let secondCallAt = 0;
+    const start = Date.now();
+    const fetch = mockFetch(() => {
+      calls += 1;
+      if (calls === 1) {
+        return new Response(JSON.stringify({ message: 'Too many requests for this API key.' }), {
+          status: 429,
+          headers: { 'Retry-After': '1' },
+        });
+      }
+      secondCallAt = Date.now();
+      return new Response(JSON.stringify({ event: sampleEvent }), { status: 202 });
+    });
+
+    const client = new Trigv({ apiKey: API_KEY, fetch, maxRetries: 2 });
+    const result = await client.sendEvent({
+      channel: 'general',
+      title: 'x',
+      idempotency_key: 'k1',
+    });
+
+    expect(calls).toBe(2);
+    expect(secondCallAt - start).toBeGreaterThanOrEqual(900);
+    expect(result.event.public_id).toBe('evt_abc');
+  });
+
+  it('retries burst 429 with HTTP-date Retry-After', async () => {
+    let calls = 0;
+    const fetch = mockFetch(() => {
+      calls += 1;
+      if (calls === 1) {
+        const retryAt = new Date(Date.now() + 1000).toUTCString();
+        return new Response(JSON.stringify({ message: 'Too many requests for this API key.' }), {
+          status: 429,
+          headers: { 'Retry-After': retryAt },
+        });
+      }
+      return new Response(JSON.stringify({ event: sampleEvent }), { status: 202 });
+    });
+
+    const client = new Trigv({ apiKey: API_KEY, fetch, maxRetries: 2 });
+    await client.sendEvent({
+      channel: 'general',
+      title: 'x',
+      idempotency_key: 'k1',
+    });
+    expect(calls).toBe(2);
+  });
+
+  it('falls back when Retry-After is invalid', async () => {
+    let calls = 0;
+    const fetch = mockFetch(() => {
+      calls += 1;
+      if (calls === 1) {
+        return new Response(JSON.stringify({ message: 'Too many requests for this API key.' }), {
+          status: 429,
+          headers: { 'Retry-After': 'not-a-number' },
+        });
+      }
+      return new Response(JSON.stringify({ event: sampleEvent }), { status: 202 });
+    });
+
+    const client = new Trigv({ apiKey: API_KEY, fetch, maxRetries: 2 });
+    await client.sendEvent({
+      channel: 'general',
+      title: 'x',
+      idempotency_key: 'k1',
+    });
+    expect(calls).toBe(2);
+  });
+
+  it('falls back when Retry-After is missing', async () => {
+    let calls = 0;
+    const fetch = mockFetch(() => {
+      calls += 1;
+      if (calls === 1) {
+        return new Response(JSON.stringify({ message: 'Too many requests for this API key.' }), {
+          status: 429,
+        });
+      }
+      return new Response(JSON.stringify({ event: sampleEvent }), { status: 202 });
+    });
+
+    const client = new Trigv({ apiKey: API_KEY, fetch, maxRetries: 2 });
+    await client.sendEvent({
+      channel: 'general',
+      title: 'x',
+      idempotency_key: 'k1',
+    });
+    expect(calls).toBe(2);
+  });
+
+  it('does not retry monthly-cap 429', async () => {
+    let calls = 0;
+    const fetch = mockFetch(() => {
+      calls += 1;
+      return new Response(
+        JSON.stringify({ message: 'Monthly event limit reached for this workspace.' }),
+        { status: 429, headers: { 'Retry-After': '60' } },
+      );
+    });
+
+    const client = new Trigv({ apiKey: API_KEY, fetch, maxRetries: 2 });
+    await expect(
+      client.sendEvent({ channel: 'general', title: 'x', idempotency_key: 'k1' }),
+    ).rejects.toSatisfy((error: unknown) => {
+      return error instanceof RateLimitError && error.retryable === false;
+    });
+    expect(calls).toBe(1);
   });
 });

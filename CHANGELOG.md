@@ -12,5 +12,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial release of `@trigv/cli` (`trigv` binary)
 - `trigv send` — send events from the shell with flags
 - `trigv connection` — verify API key via GET `/v1/connection`
-- `trigv config set-key` — store API key (env, macOS Keychain, or `~/.config/trigv/credentials`)
+- `trigv config set-key` — store API key (env, macOS Keychain, or `~/.config/trigv/credentials`); key read from stdin or hidden prompt
+
+### Fixed
+
+- Reject invalid `maxRetries` and `timeout` in the HTTP client
+- Validate string max lengths by Unicode code point (not UTF-16 code units)
+- Honour `Retry-After` on retryable HTTP 429 responses
+- Tighten credentials file permissions with `chmod` after every write (POSIX)
+- Strict CLI argument parsing (reject unknown flags and extra positionals)
+- `trigv config set-key` reads API key from stdin or hidden prompt (not positional argument)
+- Credential `chmod` failures on POSIX fail storage instead of being silently ignored
+- TTY hidden input handles pasted multi-character chunks; no echoing readline fallback
+- `config set-key` accepts only `--json` and `--help` (rejects `--base-url`)
 - `--json` output and structured exit codes for scripting

@@ -66,10 +66,12 @@ export class RateLimitError extends TrigvError {
   readonly name = 'RateLimitError';
   readonly statusCode = 429;
   readonly retryable: boolean;
+  readonly retryAfterMs?: number;
 
-  constructor(message: string, retryable = true) {
+  constructor(message: string, retryable = true, retryAfterMs?: number) {
     super(message);
     this.retryable = retryable;
+    this.retryAfterMs = retryAfterMs;
     Object.setPrototypeOf(this, new.target.prototype);
   }
 }

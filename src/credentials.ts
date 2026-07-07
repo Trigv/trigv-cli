@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { homedir, platform } from 'node:os';
 import { dirname, join } from 'node:path';
 import { KEYCHAIN_ACCOUNT, KEYCHAIN_SERVICE } from './constants.js';
@@ -12,6 +12,7 @@ export interface CredentialsDeps {
   readKeychain?: () => string | null;
   writeKeychain?: (apiKey: string) => void;
   credentialsPath?: string;
+  chmodFn?: (path: string, mode: number) => Promise<void>;
 }
 
 function defaultCredentialsPath(home: string): string {
@@ -56,10 +57,36 @@ export async function readCredentialsFile(path: string): Promise<string | null> 
   }
 }
 
-export async function writeCredentialsFile(path: string, apiKey: string): Promise<void> {
-  await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+async function restrictMode(
+  path: string,
+  mode: number,
+  deps: Pick<CredentialsDeps, 'platformFn' | 'chmodFn'>,
+): Promise<void> {
+  const platformName = deps.platformFn?.() ?? platform();
+  if (platformName === 'win32') {
+    return;
+  }
+
+  const chmodImpl = deps.chmodFn ?? chmod;
+  try {
+    await chmodImpl(path, mode);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new ConfigError(`Failed to secure credentials at ${path}: ${detail}`);
+  }
+}
+
+export async function writeCredentialsFile(
+  path: string,
+  apiKey: string,
+  deps: Pick<CredentialsDeps, 'platformFn' | 'chmodFn'> = {},
+): Promise<void> {
+  const dir = dirname(path);
+  await mkdir(dir, { recursive: true, mode: 0o700 });
+  await restrictMode(dir, 0o700, deps);
   const payload: CredentialsFile = { api_key: apiKey };
   await writeFile(path, `${JSON.stringify(payload, null, 2)}\n`, { mode: 0o600 });
+  await restrictMode(path, 0o600, deps);
 }
 
 export async function resolveApiKey(deps: CredentialsDeps = {}): Promise<string | null> {
@@ -99,13 +126,13 @@ export async function storeApiKey(apiKey: string, deps: CredentialsDeps = {}): P
 
   const home = deps.homedirFn?.() ?? homedir();
   const path = deps.credentialsPath ?? defaultCredentialsPath(home);
-  await writeCredentialsFile(path, trimmed);
+  await writeCredentialsFile(path, trimmed, deps);
   return path;
 }
 
 export function missingApiKeyMessage(): string {
   return (
-    'No API key found. Set TRIGV_API_KEY, run `trigv config set-key <key>`, ' +
+    'No API key found. Set TRIGV_API_KEY, run `trigv config set-key`, ' +
     'or store a key in ~/.config/trigv/credentials.'
   );
 }
