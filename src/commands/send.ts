@@ -13,6 +13,7 @@ export interface SendOptions {
   deliveryUrgency?: string;
   eventType?: string;
   imageUrl?: string;
+  url?: string;
   idempotencyKey?: string;
   baseUrl?: string;
   json?: boolean;
@@ -48,6 +49,7 @@ export async function runSend(options: SendOptions): Promise<void> {
     delivery_urgency: options.deliveryUrgency as DeliveryUrgency | undefined,
     event_type: options.eventType,
     image_url: options.imageUrl,
+    url: options.url,
     idempotency_key: options.idempotencyKey,
   });
 
@@ -73,6 +75,7 @@ Options:
   --delivery-urgency   standard | time_sensitive
   --event-type         Free-form event label
   --image-url          HTTPS image URL
+  --url                Destination URL (e.g. deployment details)
   --idempotency-key    Dedup key per workspace
   --base-url           API base URL override
   --json               Output JSON to stdout`);

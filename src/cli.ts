@@ -37,6 +37,7 @@ const SEND_OPTIONS = {
   'delivery-urgency': { type: 'string' },
   'event-type': { type: 'string' },
   'image-url': { type: 'string' },
+  url: { type: 'string' },
   'idempotency-key': { type: 'string' },
 } as const satisfies ParseArgsConfig['options'];
 
@@ -222,6 +223,7 @@ export async function run(argv: string[]): Promise<number> {
         deliveryUrgency: asString(values['delivery-urgency']),
         eventType: asString(values['event-type']),
         imageUrl: asString(values['image-url']),
+        url: asString(values.url),
         idempotencyKey: asString(values['idempotency-key']),
         baseUrl: asString(values['base-url']),
         json: asBoolean(values.json),

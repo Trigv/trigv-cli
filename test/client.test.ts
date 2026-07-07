@@ -60,6 +60,7 @@ describe('Trigv client', () => {
         delivery_urgency: 'standard',
         event_type: 'deploy.completed',
         idempotency_key: 'deploy-prod-42',
+        url: 'https://example.com/deployments/42',
       });
       return new Response(JSON.stringify({ event: { ...sampleEvent, level: 'success' } }), {
         status: 202,
@@ -75,6 +76,7 @@ describe('Trigv client', () => {
       delivery_urgency: 'standard',
       event_type: 'deploy.completed',
       idempotency_key: 'deploy-prod-42',
+      url: 'https://example.com/deployments/42',
     });
   });
 

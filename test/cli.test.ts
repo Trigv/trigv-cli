@@ -301,4 +301,22 @@ describe('CLI run()', () => {
       }),
     ).resolves.toBeUndefined();
   });
+
+  it('send with --url passes url to API', async () => {
+    process.env.TRIGV_API_KEY = API_KEY;
+    const fetch = mockFetch((_url, init) => {
+      const body = JSON.parse(String(init?.body));
+      expect(body.url).toBe('https://example.com/deployments/42');
+      return new Response(JSON.stringify({ event: sampleEvent }), { status: 202 });
+    });
+
+    const { runSend } = await import('../src/commands/send.js');
+    await runSend({
+      channel: 'deploys',
+      title: 'Production deploy complete',
+      url: 'https://example.com/deployments/42',
+      fetch,
+      credentialsDeps: { readKeychain: () => API_KEY },
+    });
+  });
 });

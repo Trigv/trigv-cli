@@ -71,6 +71,7 @@ trigv send --channel general --title "Cron job failed" --level error
 | `--title` | Notification title (required) |
 | `--description` | Body text |
 | `--image-url` | HTTPS image URL (not stored server-side) |
+| `--url` | Destination URL for the notification (max 2048 characters; not stored server-side) |
 | `--level` | `info`, `success`, `warning`, `error` (default: `info`) |
 | `--delivery-urgency` | `standard` or `time_sensitive` (default: `standard`) |
 | `--event-type` | Free-form label (e.g. `deploy.completed`) |
@@ -86,7 +87,8 @@ trigv send \
   --level success \
   --delivery-urgency standard \
   --event-type deploy.completed \
-  --idempotency-key deploy-prod-42
+  --idempotency-key deploy-prod-42 \
+  --url "https://example.com/deployments/42"
 ```
 
 ## Levels

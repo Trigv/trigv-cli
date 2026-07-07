@@ -17,6 +17,7 @@ export interface SendEventParams {
   title: string;
   description?: string;
   image_url?: string;
+  url?: string;
   level?: NotificationLevel;
   delivery_urgency?: DeliveryUrgency;
   event_type?: string;

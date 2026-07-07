@@ -70,6 +70,12 @@ export function validateSendEventParams(params: SendEventParams): Record<string,
     body.image_url = imageUrl;
   }
 
+  const url = trim(params.url);
+  if (url !== undefined) {
+    assertMaxLength('url', url, FIELD_MAX_LENGTHS.url);
+    body.url = url;
+  }
+
   const level = trim(params.level);
   if (level !== undefined) {
     assertEnum('level', level, LEVELS);

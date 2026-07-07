@@ -15,6 +15,7 @@ export const FIELD_MAX_LENGTHS = {
   title: 255,
   description: 1000,
   image_url: 2048,
+  url: 2048,
   event_type: 120,
   idempotency_key: 190,
 } as const;
