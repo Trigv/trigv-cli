@@ -122,7 +122,7 @@ export class Trigv {
     }
 
     this.apiKey = options.apiKey.trim();
-    this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/$/, '');
+    this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, '');
     this.timeout = options.timeout ?? DEFAULT_TIMEOUT_MS;
     this.maxRetries = options.maxRetries ?? MAX_RETRIES;
     this.fetchImpl = options.fetch ?? fetch;
@@ -195,7 +195,12 @@ export class Trigv {
           throw error;
         }
 
-        const waitMs = retryAfterOf(error) ?? retryBackoffMs(attempt);
+        const retryAfterMs = retryAfterOf(error);
+        if (retryAfterMs !== undefined && retryAfterMs > this.timeout) {
+          // Server asks for a longer wait than we allow: surface the original error.
+          throw error;
+        }
+        const waitMs = retryAfterMs ?? retryBackoffMs(attempt);
 
         const waitAbort = new AbortController();
         const waitTimeout = setTimeout(() => waitAbort.abort(new TimeoutError()), this.timeout);

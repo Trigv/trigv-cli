@@ -18,10 +18,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Typed 409 (`conflict`) and 503 (`service_unavailable`) errors, retried with `Retry-After` when `--idempotency-key` is set.
 - Errors show the `X-Request-ID` (human output) and `request_id` (`--json` output).
+- When `Retry-After` is longer than the request timeout, the original 409, 429 or 503 error is thrown at once instead of waiting.
 
 ### Removed
 
 - Monthly event cap handling.
+
+### Deprecated
+
+- `RateLimitError.retryable` (always `true`) and `isMonthlyLimitMessage` (always `false`) are kept as deprecated aliases for compatibility. The old `RateLimitError(message, retryable, retryAfterMs)` argument order still works. Both will be removed in the next major version.
 
 ## [0.1.0] - 2026-07-07
 

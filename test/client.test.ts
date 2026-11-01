@@ -6,7 +6,9 @@ import {
   NotFoundError,
   RateLimitError,
   ServiceUnavailableError,
+  TimeoutError,
   ValidationError,
+  isMonthlyLimitMessage,
 } from '../src/errors.js';
 
 const API_KEY = 'trgv_testkey1_abcdefghijklmnopqrstuvwxyz123456';
@@ -427,5 +429,84 @@ describe('Trigv client', () => {
       ConflictError,
     );
     expect(calls).toBe(1);
+  });
+});
+
+describe('Retry-After above the wait cap', () => {
+  it.each([409, 429, 503])('throws the original %i error without waiting', async (status) => {
+    let calls = 0;
+    const fetch = mockFetch(() => {
+      calls += 1;
+      return new Response(JSON.stringify({ message: 'slow down' }), {
+        status,
+        headers: { 'Retry-After': '120', 'X-Request-ID': '01JREQXXXXXXXXXXXXXXXXXXXX' },
+      });
+    });
+    const client = new Trigv({ apiKey: API_KEY, fetch, maxRetries: 2, timeout: 30_000 });
+    const start = Date.now();
+    const error = await client
+      .sendEvent({ channel: 'general', title: 'x', idempotency_key: 'k1' })
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(
+      status === 409 ? ConflictError : status === 429 ? RateLimitError : ServiceUnavailableError,
+    );
+    expect(error).not.toBeInstanceOf(TimeoutError);
+    expect((error as { retryAfterMs?: number }).retryAfterMs).toBe(120_000);
+    expect((error as { requestId?: string }).requestId).toBe('01JREQXXXXXXXXXXXXXXXXXXXX');
+    expect(calls).toBe(1);
+    expect(Date.now() - start).toBeLessThan(1000);
+  });
+
+  it('throws at once for an HTTP-date Retry-After above the cap', async () => {
+    let calls = 0;
+    const fetch = mockFetch(() => {
+      calls += 1;
+      return new Response(JSON.stringify({ message: 'busy' }), {
+        status: 503,
+        headers: { 'Retry-After': new Date(Date.now() + 3_600_000).toUTCString() },
+      });
+    });
+    const client = new Trigv({ apiKey: API_KEY, fetch, maxRetries: 2 });
+    await expect(
+      client.sendEvent({ channel: 'general', title: 'x', idempotency_key: 'k1' }),
+    ).rejects.toBeInstanceOf(ServiceUnavailableError);
+    expect(calls).toBe(1);
+  });
+});
+
+describe('base URL trailing slashes', () => {
+  it('strips every trailing slash', async () => {
+    const urls: string[] = [];
+    const fetch = mockFetch((url) => {
+      urls.push(url);
+      return new Response(JSON.stringify({ event: sampleEvent }), { status: 202 });
+    });
+    await new Trigv({ apiKey: API_KEY, fetch, baseUrl: 'https://api.trigv.com//' }).sendEvent({
+      channel: 'general',
+      title: 'x',
+    });
+    expect(urls).toEqual(['https://api.trigv.com/v1/events']);
+  });
+});
+
+describe('deprecated compatibility members', () => {
+  it('keeps RateLimitError.retryable and the old constructor order', () => {
+    const current = new RateLimitError('slow', 5000);
+    expect(current.retryable).toBe(true);
+    expect(current.retryAfterMs).toBe(5000);
+
+    const legacy = new (
+      RateLimitError as unknown as new (
+        message: string,
+        retryable: boolean,
+        retryAfterMs?: number,
+      ) => RateLimitError
+    )('slow', false, 7000);
+    expect(legacy.retryable).toBe(true);
+    expect(legacy.retryAfterMs).toBe(7000);
+  });
+
+  it('keeps isMonthlyLimitMessage, always false', () => {
+    expect(isMonthlyLimitMessage('Monthly event limit reached')).toBe(false);
   });
 });

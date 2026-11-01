@@ -69,10 +69,18 @@ export class RateLimitError extends TrigvError {
   readonly statusCode = 429;
   readonly retryAfterMs?: number;
 
-  constructor(message: string, retryAfterMs?: number) {
+  constructor(message: string, retryAfterMs?: number);
+  /** @deprecated Old argument order (message, retryable, retryAfterMs). `retryable` is ignored. */
+  constructor(message: string, retryable: boolean, retryAfterMs?: number);
+  constructor(message: string, second?: number | boolean, third?: number) {
     super(message);
-    this.retryAfterMs = retryAfterMs;
+    this.retryAfterMs = typeof second === 'boolean' ? third : second;
     Object.setPrototypeOf(this, new.target.prototype);
+  }
+
+  /** @deprecated Every 429 is retryable now, so this is always `true`. */
+  get retryable(): boolean {
+    return true;
   }
 }
 
@@ -133,4 +141,10 @@ export class TimeoutError extends TrigvError {
     super(message);
     Object.setPrototypeOf(this, new.target.prototype);
   }
+}
+
+/** @deprecated The monthly event cap no longer exists. Always returns `false`. */
+export function isMonthlyLimitMessage(message: string): boolean {
+  void message;
+  return false;
 }

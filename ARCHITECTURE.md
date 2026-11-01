@@ -149,7 +149,8 @@ Identical to SDK spec and `trigv-node`:
 
 - Max 2 retries (3 attempts total)
 - Exponential backoff with jitter
-- Retry on network, timeout, 429 (burst only), 502/503/504
+- Retry on network, timeout, 409, 429, 502, 503, 504 (POST only with `idempotency_key`; the connection GET is always retried)
+- Wait for `Retry-After` when sent; if it is longer than the request timeout, throw the original error at once
 - POST without `idempotency_key`: no retry on ambiguous failure
 - POST with `idempotency_key`: safe to retry
 
@@ -157,7 +158,7 @@ Identical to SDK spec and `trigv-node`:
 
 ## User-Agent
 
-`trigv-cli/0.2.0` — distinct from `trigv-node/1.1.0` for server-side analytics.
+`trigv-cli/0.2.0` is distinct from `trigv-node/1.1.0` for server-side analytics.
 
 ---
 
