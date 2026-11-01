@@ -20,22 +20,35 @@ export function printHuman(message: string): void {
   console.error(message);
 }
 
-export function formatSendSuccess(duplicate: boolean, publicId: string, json: boolean): void {
+function withRequestId(message: string, requestId?: string): string {
+  return requestId ? `${message} (request id ${requestId})` : message;
+}
+
+export function formatSendSuccess(
+  duplicate: boolean,
+  publicId: string,
+  json: boolean,
+  requestId?: string,
+): void {
   if (json) {
     return;
   }
   if (duplicate) {
-    printHuman(`Event already exists (${publicId})`);
+    printHuman(withRequestId(`Event already exists (${publicId})`, requestId));
   } else {
-    printHuman(`Event queued (${publicId})`);
+    printHuman(withRequestId(`Event queued (${publicId})`, requestId));
   }
 }
 
-export function formatConnectionSuccess(workspaceName: string, json: boolean): void {
+export function formatConnectionSuccess(
+  workspaceName: string,
+  json: boolean,
+  requestId?: string,
+): void {
   if (json) {
     return;
   }
-  printHuman(`Connected to workspace "${workspaceName}"`);
+  printHuman(withRequestId(`Connected to workspace "${workspaceName}"`, requestId));
 }
 
 export function formatSetKeySuccess(location: string, json: boolean): void {

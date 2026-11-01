@@ -58,9 +58,10 @@ export async function runSend(options: SendOptions): Promise<void> {
       ok: true,
       event: result.event,
       duplicate: result.duplicate,
+      ...(result.requestId ? { request_id: result.requestId } : {}),
     });
   } else {
-    formatSendSuccess(result.duplicate, result.event.public_id, false);
+    formatSendSuccess(result.duplicate, result.event.public_id, false, result.requestId);
   }
 }
 

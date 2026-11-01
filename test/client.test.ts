@@ -145,6 +145,33 @@ describe('Trigv client', () => {
     }
   });
 
+  it('exposes the request id on send and connection results, undefined when missing', async () => {
+    const conn = JSON.stringify({
+      workspace: { public_id: 'ws_1', name: 'Test' },
+      api_key: { public_id: 'key_1', name: 'Default', prefix: 'trgv_testkey1' },
+    });
+    const withId = mockFetch((url) =>
+      url.includes('/v1/connection')
+        ? new Response(conn, { status: 200, headers: { 'X-Request-ID': 'req_ok_1' } })
+        : new Response(JSON.stringify({ event: sampleEvent }), {
+            status: 202,
+            headers: { 'X-Request-ID': 'req_ok_1' },
+          }),
+    );
+    const a = new Trigv({ apiKey: API_KEY, fetch: withId, maxRetries: 0 });
+    expect((await a.sendEvent({ channel: 'general', title: 'x' })).requestId).toBe('req_ok_1');
+    expect((await a.verifyConnection()).requestId).toBe('req_ok_1');
+
+    const without = mockFetch((url) =>
+      url.includes('/v1/connection')
+        ? new Response(conn, { status: 200 })
+        : new Response(JSON.stringify({ event: sampleEvent }), { status: 202 }),
+    );
+    const b = new Trigv({ apiKey: API_KEY, fetch: without, maxRetries: 0 });
+    expect((await b.sendEvent({ channel: 'general', title: 'x' })).requestId).toBeUndefined();
+    expect((await b.verifyConnection()).requestId).toBeUndefined();
+  });
+
   it('sets User-Agent header', async () => {
     const fetch = mockFetch((_url, init) => {
       const headers = init?.headers as Record<string, string>;

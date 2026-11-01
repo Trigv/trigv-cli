@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { homedir, platform } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -36,12 +36,42 @@ export function readKeychainDefault(): string | null {
   }
 }
 
-export function writeKeychainDefault(apiKey: string): void {
-  execFileSync(
-    'security',
-    ['add-generic-password', '-s', KEYCHAIN_SERVICE, '-a', KEYCHAIN_ACCOUNT, '-w', apiKey, '-U'],
-    { stdio: ['pipe', 'pipe', 'pipe'] },
-  );
+export type SpawnSyncFn = (
+  command: string,
+  args: string[],
+  options: { input: string; encoding: 'utf8'; stdio: ['pipe', 'pipe', 'pipe'] },
+) => {
+  status: number | null;
+  signal?: NodeJS.Signals | null;
+  error?: Error;
+  stderr?: string | null;
+};
+
+/**
+ * Stores the key in the macOS Keychain without putting it in the argument list
+ * or environment of any process (`ps` can show both). The command goes to
+ * `security -i` on stdin, and the key is sent as hex (`-X`), so it needs no quoting.
+ */
+export function writeKeychainDefault(apiKey: string, spawnFn: SpawnSyncFn = spawnSync): void {
+  const hex = Buffer.from(apiKey, 'utf8').toString('hex');
+  const command = `add-generic-password -s ${KEYCHAIN_SERVICE} -a ${KEYCHAIN_ACCOUNT} -X ${hex} -U\n`;
+
+  const result = spawnFn('security', ['-i'], {
+    input: command,
+    encoding: 'utf8',
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+
+  if (result.error) {
+    // Only the error code is reported, never text that could echo the command.
+    const code = (result.error as NodeJS.ErrnoException).code;
+    throw new Error(`Could not run the security command${code ? ` (${code})` : ''}`);
+  }
+  if (result.status !== 0) {
+    const reason =
+      result.status === null ? `signal ${String(result.signal)}` : `exit code ${result.status}`;
+    throw new Error(`The security command failed (${reason})`);
+  }
 }
 
 export async function readCredentialsFile(path: string): Promise<string | null> {

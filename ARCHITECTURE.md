@@ -106,7 +106,7 @@ Priority (first match wins):
 2. macOS Keychain (`security find-generic-password`, service `trigv-cli`)
 3. `~/.config/trigv/credentials` (JSON, mode `0600`)
 
-`trigv config set-key` writes to Keychain on macOS, otherwise the credentials file.
+`trigv config set-key` writes to Keychain on macOS, otherwise the credentials file. The Keychain write runs `security -i` and sends the command on stdin with the key hex encoded (`-X`), so the key never appears in process arguments or environment.
 
 Keys are never logged, printed in errors, or included in `--json` output.
 

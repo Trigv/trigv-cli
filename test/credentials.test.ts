@@ -4,10 +4,12 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConfigError } from '../src/errors.js';
 import {
+  type SpawnSyncFn,
   readCredentialsFile,
   resolveApiKey,
   storeApiKey,
   writeCredentialsFile,
+  writeKeychainDefault,
 } from '../src/credentials.js';
 
 describe('credentials', () => {
@@ -158,5 +160,100 @@ describe('credentials', () => {
 
     expect(location).toBe('macOS Keychain');
     expect(writeKeychain).toHaveBeenCalledWith('trgv_mac_key_abcdefghijklmnopqrstuvwxyz123456');
+  });
+
+  describe('writeKeychainDefault', () => {
+    const KEY = 'trgv_secret_key_abcdefghijklmnopqrstuvwxyz1234';
+    const KEY_HEX = Buffer.from(KEY, 'utf8').toString('hex');
+
+    function okSpawn() {
+      return vi.fn<SpawnSyncFn>(() => ({ status: 0, stderr: '' }));
+    }
+
+    it('keeps the key out of argv and env and sends it only on stdin', () => {
+      const spawn = okSpawn();
+      writeKeychainDefault(KEY, spawn);
+
+      expect(spawn).toHaveBeenCalledTimes(1);
+      const [command, args, options] = spawn.mock.calls[0];
+      expect(command).toBe('security');
+      expect(args).toEqual(['-i']);
+      for (const arg of args) {
+        expect(arg).not.toContain(KEY);
+        expect(arg).not.toContain(KEY_HEX);
+      }
+      expect(Object.keys(options)).not.toContain('env');
+      expect(options.stdio[0]).toBe('pipe');
+      expect(options.input).toContain(KEY_HEX);
+      expect(options.input).not.toContain(KEY);
+      expect(options.input).toBe(`add-generic-password -s trigv-cli -a api-key -X ${KEY_HEX} -U\n`);
+    });
+
+    it('updates an existing item with -U on a second write', () => {
+      const spawn = okSpawn();
+      const second = 'trgv_new_key_abcdefghijklmnopqrstuvwxyz123456';
+      writeKeychainDefault(KEY, spawn);
+      writeKeychainDefault(second, spawn);
+
+      expect(spawn).toHaveBeenCalledTimes(2);
+      for (const call of spawn.mock.calls) {
+        expect(call[2].input).toMatch(/ -U\n$/);
+        expect(call[1]).toEqual(['-i']);
+      }
+      expect(spawn.mock.calls[1][2].input).toContain(Buffer.from(second).toString('hex'));
+    });
+
+    it('throws a message without the key when the process cannot start', () => {
+      const spawn = vi.fn<SpawnSyncFn>(() => ({
+        status: null,
+        error: Object.assign(new Error(`spawn security ENOENT ${KEY} ${KEY_HEX}`), {
+          code: 'ENOENT',
+        }),
+      }));
+
+      let message = '';
+      try {
+        writeKeychainDefault(KEY, spawn);
+      } catch (error) {
+        message = String(error);
+      }
+      expect(message).toContain('ENOENT');
+      expect(message).not.toContain(KEY);
+      expect(message).not.toContain(KEY_HEX);
+    });
+
+    it('throws a message without the key when security exits non-zero', () => {
+      const spawn = vi.fn<SpawnSyncFn>(() => ({
+        status: 2,
+        stderr: `add-generic-password: returned 2 ${KEY}`,
+      }));
+
+      let message = '';
+      try {
+        writeKeychainDefault(KEY, spawn);
+      } catch (error) {
+        message = String(error);
+      }
+      expect(message).toContain('exit code 2');
+      expect(message).not.toContain(KEY);
+      expect(message).not.toContain(KEY_HEX);
+    });
+
+    it('reports a signal kill without the key', () => {
+      const spawn = vi.fn<SpawnSyncFn>(() => ({ status: null, signal: 'SIGKILL' }));
+      expect(() => writeKeychainDefault(KEY, spawn)).toThrow(/SIGKILL/);
+    });
+
+    it('falls back to the credentials file when the keychain write fails on darwin', async () => {
+      const dir = await mkdtemp(join(tmpdir(), 'trigv-cli-'));
+      const path = join(dir, 'credentials');
+      const location = await storeApiKey(KEY, {
+        platformFn: () => 'darwin',
+        writeKeychain: (apiKey) => writeKeychainDefault(apiKey, () => ({ status: 1 })),
+        credentialsPath: path,
+      });
+      expect(location).toBe(path);
+      expect(await readCredentialsFile(path)).toBe(KEY);
+    });
   });
 });

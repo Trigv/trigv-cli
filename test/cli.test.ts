@@ -130,6 +130,79 @@ describe('CLI run()', () => {
     expect(output.event.public_id).toBe('01JXXXXXXXXXXXXXXXXXXXXXXX');
   });
 
+  it('adds request_id to send and connection JSON success output when the header is present', async () => {
+    process.env.TRIGV_API_KEY = API_KEY;
+    const conn = JSON.stringify({
+      workspace: { public_id: 'ws_1', name: 'Test' },
+      api_key: { public_id: 'key_1', name: 'Default', prefix: 'trgv_testkey1' },
+    });
+    const fetch = mockFetch((url) =>
+      url.includes('/v1/connection')
+        ? new Response(conn, { status: 200, headers: { 'X-Request-ID': 'req_ok_1' } })
+        : new Response(JSON.stringify({ event: sampleEvent }), {
+            status: 202,
+            headers: { 'X-Request-ID': 'req_ok_1' },
+          }),
+    );
+    const credentialsDeps = { readKeychain: () => API_KEY };
+
+    const { runSend } = await import('../src/commands/send.js');
+    await runSend({ channel: 'general', title: 'Hello', json: true, fetch, credentialsDeps });
+    expect(JSON.parse(String(stdoutSpy.mock.calls.at(-1)?.[0])).request_id).toBe('req_ok_1');
+
+    const { runConnection } = await import('../src/commands/connection.js');
+    await runConnection({ json: true, fetch, credentialsDeps });
+    expect(JSON.parse(String(stdoutSpy.mock.calls.at(-1)?.[0])).request_id).toBe('req_ok_1');
+  });
+
+  it('leaves request_id out of JSON success output when the header is missing', async () => {
+    process.env.TRIGV_API_KEY = API_KEY;
+    const conn = JSON.stringify({
+      workspace: { public_id: 'ws_1', name: 'Test' },
+      api_key: { public_id: 'key_1', name: 'Default', prefix: 'trgv_testkey1' },
+    });
+    const fetch = mockFetch((url) =>
+      url.includes('/v1/connection')
+        ? new Response(conn, { status: 200 })
+        : new Response(JSON.stringify({ event: sampleEvent }), { status: 202 }),
+    );
+    const credentialsDeps = { readKeychain: () => API_KEY };
+
+    const { runSend } = await import('../src/commands/send.js');
+    await runSend({ channel: 'general', title: 'Hello', json: true, fetch, credentialsDeps });
+    expect(JSON.parse(String(stdoutSpy.mock.calls.at(-1)?.[0]))).not.toHaveProperty('request_id');
+
+    const { runConnection } = await import('../src/commands/connection.js');
+    await runConnection({ json: true, fetch, credentialsDeps });
+    expect(JSON.parse(String(stdoutSpy.mock.calls.at(-1)?.[0]))).not.toHaveProperty('request_id');
+  });
+
+  it('ends human success output with the request id only when present', async () => {
+    process.env.TRIGV_API_KEY = API_KEY;
+    const credentialsDeps = { readKeychain: () => API_KEY };
+    const { runSend } = await import('../src/commands/send.js');
+
+    const withId = mockFetch(
+      () =>
+        new Response(JSON.stringify({ event: sampleEvent }), {
+          status: 202,
+          headers: { 'X-Request-ID': 'req_ok_1' },
+        }),
+    );
+    await runSend({ channel: 'general', title: 'Hello', fetch: withId, credentialsDeps });
+    expect(String(stderrSpy.mock.calls.at(-1)?.[0])).toBe(
+      'Event queued (01JXXXXXXXXXXXXXXXXXXXXXXX) (request id req_ok_1)',
+    );
+
+    const without = mockFetch(
+      () => new Response(JSON.stringify({ event: sampleEvent }), { status: 202 }),
+    );
+    await runSend({ channel: 'general', title: 'Hello', fetch: without, credentialsDeps });
+    expect(String(stderrSpy.mock.calls.at(-1)?.[0])).toBe(
+      'Event queued (01JXXXXXXXXXXXXXXXXXXXXXXX)',
+    );
+  });
+
   it('verifies connection', async () => {
     process.env.TRIGV_API_KEY = API_KEY;
 

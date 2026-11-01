@@ -31,9 +31,10 @@ export async function runConnection(options: ConnectionOptions): Promise<void> {
       ok: true,
       workspace: result.workspace,
       api_key: result.api_key,
+      ...(result.requestId ? { request_id: result.requestId } : {}),
     });
   } else {
-    formatConnectionSuccess(result.workspace.name, false);
+    formatConnectionSuccess(result.workspace.name, false, result.requestId);
   }
 }
 

@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- On macOS, `trigv config set-key` no longer passes the API key as an argument to the `security` command (visible in `ps`). The key now goes to `security -i` on stdin, hex encoded.
 - A retry wait is no longer cut short by a request timeout shorter than the backoff. Backoff is capped at 8 seconds.
 - `Retry-After` accepts fractional seconds.
 - Non-string values throw `ValidationError` instead of a `TypeError`.
@@ -23,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `trigv --version`.
+- Successful `send` and `connection` show the `X-Request-ID`: `request_id` in `--json` output and `(request id ...)` at the end of human output. Left out when the header is missing.
 - Typed 409 (`conflict`) and 503 (`service_unavailable`) errors, retried with `Retry-After` when `--idempotency-key` is set.
 - Errors show the `X-Request-ID` (human output) and `request_id` (`--json` output).
 - When `Retry-After` is longer than the request timeout, the original 409, 429 or 503 error is thrown at once instead of waiting.

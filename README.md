@@ -123,7 +123,7 @@ trigv send --channel general --title "Hello" --json
 ```
 
 ```json
-{"ok":true,"event":{"public_id":"01JXXXXXXXXXXXXXXXXXXXXXXX","status":"sent",...},"duplicate":false}
+{"ok":true,"event":{"public_id":"01JXXXXXXXXXXXXXXXXXXXXXXX","status":"sent",...},"duplicate":false,"request_id":"01JXXXXXXXXXXXXXXXXXXXXXXX"}
 ```
 
 Errors also return JSON when `--json` is set:
@@ -132,7 +132,7 @@ Errors also return JSON when `--json` is set:
 {"ok":false,"error":"Channel not found.","code":"not_found","status_code":404,"request_id":"01JXXXXXXXXXXXXXXXXXXXXXXX"}
 ```
 
-The `code` field is one of `authentication`, `authorization`, `not_found`, `conflict` (409), `rate_limit` (429, 60 requests per minute per workspace), `service_unavailable` (503), `api`, `network`, `timeout`. Quote `request_id` (the `X-Request-ID` header) when you contact support. Human output ends with `(request id …)`.
+The `code` field is one of `authentication`, `authorization`, `not_found`, `conflict` (409), `rate_limit` (429, 60 requests per minute per workspace), `service_unavailable` (503), `api`, `network`, `timeout`. Quote `request_id` (the `X-Request-ID` header) when you contact support. Success output (`send` and `connection`) includes `request_id` too, and is left out if the API sent no `X-Request-ID` header. Human output, for errors and for success, ends with `(request id …)`.
 
 `trigv --version` prints the installed version.
 
