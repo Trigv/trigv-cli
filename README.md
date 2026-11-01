@@ -105,7 +105,7 @@ trigv send \
 
 ## Idempotency
 
-When you set `--idempotency-key`, retries with the same key return the existing event (`duplicate: true`, HTTP 200, message `already stored`) without billing again. A 409 (another request is delivering the same key), 502, 503 (push unavailable) or 504, a network error or a timeout is retried automatically, waiting for `Retry-After`. The connection check is also retried. If `Retry-After` is longer than the request timeout, the original error is thrown at once, without waiting.
+When you set `--idempotency-key`, retries with the same key return the existing event (`duplicate: true`, HTTP 200, message `already stored`) without sending it again. A 409 (another request is delivering the same key), 429, 502, 503 (push unavailable) or 504, a network error or a timeout is retried automatically, waiting for `Retry-After`. The connection check is also retried. If `Retry-After` is longer than the request timeout, the original error is thrown at once, without waiting.
 
 ```bash
 trigv send \
@@ -133,6 +133,8 @@ Errors also return JSON when `--json` is set:
 ```
 
 The `code` field is one of `authentication`, `authorization`, `not_found`, `conflict` (409), `rate_limit` (429, 60 requests per minute per workspace), `service_unavailable` (503), `api`, `network`, `timeout`. Quote `request_id` (the `X-Request-ID` header) when you contact support. Human output ends with `(request id …)`.
+
+`trigv --version` prints the installed version.
 
 ## Exit codes
 

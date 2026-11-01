@@ -1,5 +1,5 @@
 /**
- * Parse Retry-After header (integer seconds or HTTP-date).
+ * Parse Retry-After header (seconds, whole or fractional, or HTTP-date).
  * Returns wait duration in milliseconds when valid.
  */
 export function parseRetryAfterHeader(value: string | null, now = Date.now()): number | undefined {
@@ -9,12 +9,9 @@ export function parseRetryAfterHeader(value: string | null, now = Date.now()): n
 
   const trimmed = value.trim();
 
-  if (/^\d+$/.test(trimmed)) {
-    const seconds = Number.parseInt(trimmed, 10);
-    if (seconds < 0) {
-      return undefined;
-    }
-    return seconds * 1000;
+  if (/^\d+(\.\d+)?$/.test(trimmed)) {
+    const ms = Math.ceil(Number.parseFloat(trimmed) * 1000);
+    return Number.isFinite(ms) ? ms : undefined;
   }
 
   const retryAt = Date.parse(trimmed);
@@ -30,8 +27,10 @@ export function parseRetryAfterHeader(value: string | null, now = Date.now()): n
   return waitMs;
 }
 
+const MAX_BACKOFF_MS = 8_000;
+
 export function retryBackoffMs(attempt: number): number {
-  return 500 * 2 ** attempt + Math.floor(Math.random() * 251);
+  return Math.min(500 * 2 ** attempt, MAX_BACKOFF_MS) + Math.floor(Math.random() * 251);
 }
 
 export function sleep(ms: number, signal?: AbortSignal): Promise<void> {

@@ -66,7 +66,7 @@ trigv-cli/
 └── .github/workflows/ci.yml
 ```
 
-Build with `tsup` (same as `trigv-node`). Binary entry: `dist/cli.js` with shebang.
+Build with `tsup` (same as `trigv-node`). Binary entry: `dist/bin.js` with shebang.
 
 ---
 
@@ -89,6 +89,7 @@ Build with `tsup` (same as `trigv-node`). Binary entry: `dist/cli.js` with sheba
 | `--delivery-urgency` | `delivery_urgency` |
 | `--event-type` | `event_type` |
 | `--image-url` | `image_url` |
+| `--url` | `url` |
 | `--idempotency-key` | `idempotency_key` |
 
 Global flags: `--json`, `--base-url` (override default `https://api.trigv.com`).
@@ -164,7 +165,7 @@ Identical to SDK spec and `trigv-node`:
 
 ## Testing
 
-Vitest with mocked `fetch` (client tests) and subprocess invocation of the built CLI (integration-style command tests). No live API key in CI.
+Vitest with mocked `fetch` (client tests) and in-process calls to `run()` (command tests). No live API key in CI.
 
 Coverage targets:
 
@@ -178,7 +179,7 @@ Coverage targets:
 
 ## CI
 
-GitHub Actions: lint, format check, typecheck, test, build — Node 18/20/22 matrix (matches `trigv-node`).
+GitHub Actions: lint, format check, typecheck, test, build — Node 20/22 matrix (matches `trigv-node`). The dev toolchain (Vite 7) needs Node 20.19 or newer; the shipped code needs Node 18.
 
 ---
 

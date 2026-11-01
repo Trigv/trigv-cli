@@ -14,8 +14,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Rate limit is 60 requests per minute per workspace.
 - Invalid JSON bodies return 422.
 
+### Fixed
+
+- A retry wait is no longer cut short by a request timeout shorter than the backoff. Backoff is capped at 8 seconds.
+- `Retry-After` accepts fractional seconds.
+- Non-string values throw `ValidationError` instead of a `TypeError`.
+
 ### Added
 
+- `trigv --version`.
 - Typed 409 (`conflict`) and 503 (`service_unavailable`) errors, retried with `Retry-After` when `--idempotency-key` is set.
 - Errors show the `X-Request-ID` (human output) and `request_id` (`--json` output).
 - When `Retry-After` is longer than the request timeout, the original 409, 429 or 503 error is thrown at once instead of waiting.

@@ -2,9 +2,14 @@ import { DELIVERY_URGENCIES, FIELD_MAX_LENGTHS, LEVELS, PROHIBITED_FIELDS } from
 import { ValidationError } from './errors.js';
 import type { SendEventParams } from './types.js';
 
-function trim(value: string | undefined): string | undefined {
-  if (value === undefined) {
+function trim(field: string, value: unknown): string | undefined {
+  if (value === undefined || value === null) {
     return undefined;
+  }
+  if (typeof value !== 'string') {
+    throw new ValidationError(`${field} must be a string`, {
+      [field]: [`${field} must be a string`],
+    });
   }
   const trimmed = value.trim();
   return trimmed === '' ? undefined : trimmed;
@@ -43,8 +48,8 @@ export function validateSendEventParams(params: SendEventParams): Record<string,
     }
   }
 
-  const channel = trim(params.channel);
-  const title = trim(params.title);
+  const channel = trim('channel', params.channel);
+  const title = trim('title', params.title);
 
   if (!channel) {
     throw new ValidationError('channel is required', { channel: ['channel is required'] });
@@ -58,43 +63,43 @@ export function validateSendEventParams(params: SendEventParams): Record<string,
 
   const body: Record<string, string> = { channel, title };
 
-  const description = trim(params.description);
+  const description = trim('description', params.description);
   if (description !== undefined) {
     assertMaxLength('description', description, FIELD_MAX_LENGTHS.description);
     body.description = description;
   }
 
-  const imageUrl = trim(params.image_url);
+  const imageUrl = trim('image_url', params.image_url);
   if (imageUrl !== undefined) {
     assertMaxLength('image_url', imageUrl, FIELD_MAX_LENGTHS.image_url);
     body.image_url = imageUrl;
   }
 
-  const url = trim(params.url);
+  const url = trim('url', params.url);
   if (url !== undefined) {
     assertMaxLength('url', url, FIELD_MAX_LENGTHS.url);
     body.url = url;
   }
 
-  const level = trim(params.level);
+  const level = trim('level', params.level);
   if (level !== undefined) {
     assertEnum('level', level, LEVELS);
     body.level = level;
   }
 
-  const deliveryUrgency = trim(params.delivery_urgency);
+  const deliveryUrgency = trim('delivery_urgency', params.delivery_urgency);
   if (deliveryUrgency !== undefined) {
     assertEnum('delivery_urgency', deliveryUrgency, DELIVERY_URGENCIES);
     body.delivery_urgency = deliveryUrgency;
   }
 
-  const eventType = trim(params.event_type);
+  const eventType = trim('event_type', params.event_type);
   if (eventType !== undefined) {
     assertMaxLength('event_type', eventType, FIELD_MAX_LENGTHS.event_type);
     body.event_type = eventType;
   }
 
-  const idempotencyKey = trim(params.idempotency_key);
+  const idempotencyKey = trim('idempotency_key', params.idempotency_key);
   if (idempotencyKey !== undefined) {
     assertMaxLength('idempotency_key', idempotencyKey, FIELD_MAX_LENGTHS.idempotency_key);
     body.idempotency_key = idempotencyKey;

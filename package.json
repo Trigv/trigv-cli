@@ -34,6 +34,10 @@
     "type": "git",
     "url": "https://github.com/Trigv/trigv-cli.git"
   },
+  "homepage": "https://github.com/Trigv/trigv-cli#readme",
+  "bugs": {
+    "url": "https://github.com/Trigv/trigv-cli/issues"
+  },
   "devDependencies": {
     "@eslint/js": "^9.28.0",
     "@types/node": "^22.15.29",

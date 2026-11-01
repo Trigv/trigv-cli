@@ -9,6 +9,7 @@ import {
   ServiceUnavailableError,
   ValidationError,
 } from '../src/errors.js';
+import { VERSION } from '../src/constants.js';
 import { EXIT_API, EXIT_CONFIG, EXIT_SUCCESS, EXIT_VALIDATION } from '../src/exit-codes.js';
 
 const API_KEY = 'trgv_testkey1_abcdefghijklmnopqrstuvwxyz123456';
@@ -198,6 +199,11 @@ describe('CLI run()', () => {
   it('returns validation exit for unknown command', async () => {
     const code = await run(['node', 'trigv', 'unknown']);
     expect(code).toBe(EXIT_VALIDATION);
+  });
+
+  it('prints the version for --version', async () => {
+    expect(await run(['node', 'trigv', '--version'])).toBe(EXIT_SUCCESS);
+    expect(stdoutSpy).toHaveBeenCalledWith(VERSION);
   });
 
   it('returns success for help', async () => {

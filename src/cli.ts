@@ -17,6 +17,7 @@ import {
   ValidationError,
 } from './errors.js';
 import { EXIT_API, EXIT_CONFIG, EXIT_SUCCESS, EXIT_VALIDATION } from './exit-codes.js';
+import { VERSION } from './constants.js';
 import { printHuman, printJson, type JsonError } from './output.js';
 
 const GLOBAL_OPTIONS = {
@@ -55,6 +56,7 @@ Global options:
   --json        Output JSON to stdout
   --base-url    API base URL (default: https://api.trigv.com; a URL ending in /api also works)
   -h, --help    Show help
+  -v, --version Show version
 
 Authentication:
   TRIGV_API_KEY env var, macOS Keychain, or ~/.config/trigv/credentials
@@ -218,6 +220,11 @@ export function handleError(error: unknown, json: boolean): number {
 export async function run(argv: string[]): Promise<number> {
   const args = argv.slice(2);
   const [command, subcommand] = args;
+
+  if (command === '--version' || command === '-v') {
+    console.log(VERSION);
+    return EXIT_SUCCESS;
+  }
 
   if (!command || command === '--help' || command === '-h') {
     printRootUsage();
