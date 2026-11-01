@@ -9,6 +9,7 @@ export interface JsonError {
   code: string;
   errors?: Record<string, string[]>;
   status_code?: number;
+  request_id?: string;
 }
 
 export function printJson(data: JsonSuccess | JsonError): void {

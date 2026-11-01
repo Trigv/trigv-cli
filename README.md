@@ -105,7 +105,7 @@ trigv send \
 
 ## Idempotency
 
-When you set `--idempotency-key`, retries with the same key return the existing event without billing again.
+When you set `--idempotency-key`, retries with the same key return the existing event (`duplicate: true`, HTTP 200, message `already stored`) without billing again. A 409 (another request is delivering the same key) or 503 (push unavailable) is retried automatically, waiting for `Retry-After`.
 
 ```bash
 trigv send \
@@ -123,14 +123,16 @@ trigv send --channel general --title "Hello" --json
 ```
 
 ```json
-{"ok":true,"event":{"public_id":"evt_…","status":"queued",...},"duplicate":false}
+{"ok":true,"event":{"public_id":"01JXXXXXXXXXXXXXXXXXXXXXXX","status":"sent",...},"duplicate":false}
 ```
 
 Errors also return JSON when `--json` is set:
 
 ```json
-{"ok":false,"error":"Channel not found.","code":"not_found","status_code":404}
+{"ok":false,"error":"Channel not found.","code":"not_found","status_code":404,"request_id":"01JXXXXXXXXXXXXXXXXXXXXXXX"}
 ```
+
+The `code` field is one of `authentication`, `authorization`, `not_found`, `conflict` (409), `rate_limit` (429, 60 requests per minute per workspace), `service_unavailable` (503), `api`, `network`, `timeout`. Quote `request_id` (the `X-Request-ID` header) when you contact support. Human output ends with `(request id …)`.
 
 ## Exit codes
 
@@ -146,7 +148,7 @@ Errors also return JSON when `--json` is set:
 | Flag / env | Default | Description |
 |------------|---------|-------------|
 | `TRIGV_API_KEY` | — | Workspace API key |
-| `--base-url` | `https://api.trigv.com/api` | API base URL (local: `http://trigv-platform.test/api`) |
+| `--base-url` | `https://api.trigv.com` | API base URL. A URL ending in `/api` still works |
 
 ## Examples
 

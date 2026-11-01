@@ -1,6 +1,6 @@
 # trigv-cli — Architecture
 
-> **Version:** 0.1.0  
+> **Version:** 0.2.0  
 > **API contract:** [Trigv OpenAPI](https://api.trigv.com/openapi.yaml) · [API reference](https://github.com/Trigv/platform/blob/main/_docs/trigv-api-reference.md)
 
 ---
@@ -91,7 +91,7 @@ Build with `tsup` (same as `trigv-node`). Binary entry: `dist/cli.js` with sheba
 | `--image-url` | `image_url` |
 | `--idempotency-key` | `idempotency_key` |
 
-Global flags: `--json`, `--base-url` (override default `https://api.trigv.com/api`).
+Global flags: `--json`, `--base-url` (override default `https://api.trigv.com`).
 
 Kebab-case flags map to snake_case JSON fields per SDK spec.
 
@@ -157,7 +157,7 @@ Identical to SDK spec and `trigv-node`:
 
 ## User-Agent
 
-`trigv-cli/0.1.0` — distinct from `trigv-node/1.0.0` for server-side analytics.
+`trigv-cli/0.2.0` — distinct from `trigv-node/1.1.0` for server-side analytics.
 
 ---
 

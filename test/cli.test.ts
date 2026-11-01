@@ -1,14 +1,22 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { mapErrorToExitCode, run } from '../src/cli.js';
-import { AuthenticationError, ConfigError, NotFoundError, ValidationError } from '../src/errors.js';
+import { handleError, mapErrorToExitCode, run } from '../src/cli.js';
+import {
+  AuthenticationError,
+  ConfigError,
+  ConflictError,
+  NotFoundError,
+  RateLimitError,
+  ServiceUnavailableError,
+  ValidationError,
+} from '../src/errors.js';
 import { EXIT_API, EXIT_CONFIG, EXIT_SUCCESS, EXIT_VALIDATION } from '../src/exit-codes.js';
 
 const API_KEY = 'trgv_testkey1_abcdefghijklmnopqrstuvwxyz123456';
 
 const sampleEvent = {
-  public_id: 'evt_abc',
+  public_id: '01JXXXXXXXXXXXXXXXXXXXXXXX',
   event_uuid: '550e8400-e29b-41d4-a716-446655440000',
-  status: 'queued',
+  status: 'sent',
   level: 'info',
   event_type: null,
   target_device_count: 1,
@@ -40,6 +48,12 @@ describe('mapErrorToExitCode', () => {
   it('maps auth errors to exit 3', () => {
     expect(mapErrorToExitCode(new AuthenticationError('Unauthorized'))).toBe(EXIT_API);
   });
+
+  it('maps 409, 429 and 503 to exit 3', () => {
+    expect(mapErrorToExitCode(new ConflictError('busy'))).toBe(EXIT_API);
+    expect(mapErrorToExitCode(new RateLimitError('slow down'))).toBe(EXIT_API);
+    expect(mapErrorToExitCode(new ServiceUnavailableError('down'))).toBe(EXIT_API);
+  });
 });
 
 describe('CLI run()', () => {
@@ -55,6 +69,28 @@ describe('CLI run()', () => {
     } else {
       process.env.TRIGV_API_KEY = originalEnv;
     }
+  });
+
+  it('prints request_id and the error code as JSON', () => {
+    const error = new ConflictError('busy');
+    error.requestId = '01JREQXXXXXXXXXXXXXXXXXXXX';
+    expect(handleError(error, true)).toBe(EXIT_API);
+    const output = JSON.parse(String(stdoutSpy.mock.calls.at(-1)?.[0]));
+    expect(output).toMatchObject({
+      ok: false,
+      code: 'conflict',
+      status_code: 409,
+      request_id: '01JREQXXXXXXXXXXXXXXXXXXXX',
+    });
+  });
+
+  it('prints the request id in human output', () => {
+    const error = new ServiceUnavailableError('down');
+    error.requestId = '01JREQXXXXXXXXXXXXXXXXXXXX';
+    handleError(error, false);
+    expect(String(stderrSpy.mock.calls.at(-1)?.[0])).toContain(
+      'request id 01JREQXXXXXXXXXXXXXXXXXXXX',
+    );
   });
 
   it('returns validation exit for missing send flags', async () => {
@@ -90,7 +126,7 @@ describe('CLI run()', () => {
     expect(stdoutSpy).toHaveBeenCalled();
     const output = JSON.parse(String(stdoutSpy.mock.calls.at(-1)?.[0]));
     expect(output.ok).toBe(true);
-    expect(output.event.public_id).toBe('evt_abc');
+    expect(output.event.public_id).toBe('01JXXXXXXXXXXXXXXXXXXXXXXX');
   });
 
   it('verifies connection', async () => {

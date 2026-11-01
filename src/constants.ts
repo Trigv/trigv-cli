@@ -1,6 +1,6 @@
-export const VERSION = '0.1.0';
+export const VERSION = '0.2.0';
 
-export const DEFAULT_BASE_URL = 'https://api.trigv.com/api';
+export const DEFAULT_BASE_URL = 'https://api.trigv.com';
 
 export const DEFAULT_TIMEOUT_MS = 30_000;
 

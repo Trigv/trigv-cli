@@ -2,6 +2,8 @@ import type { ValidationErrors } from './types.js';
 
 export class TrigvError extends Error {
   declare name: string;
+  /** Value of the `X-Request-ID` response header, when the API answered. */
+  requestId?: string;
 
   constructor(message: string) {
     super(message);
@@ -65,12 +67,36 @@ export class NotFoundError extends TrigvError {
 export class RateLimitError extends TrigvError {
   readonly name = 'RateLimitError';
   readonly statusCode = 429;
-  readonly retryable: boolean;
   readonly retryAfterMs?: number;
 
-  constructor(message: string, retryable = true, retryAfterMs?: number) {
+  constructor(message: string, retryAfterMs?: number) {
     super(message);
-    this.retryable = retryable;
+    this.retryAfterMs = retryAfterMs;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+/** 409: another request is delivering the same `idempotency_key`. */
+export class ConflictError extends TrigvError {
+  readonly name = 'ConflictError';
+  readonly statusCode = 409;
+  readonly retryAfterMs?: number;
+
+  constructor(message: string, retryAfterMs?: number) {
+    super(message);
+    this.retryAfterMs = retryAfterMs;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+/** 503: push delivery is unavailable. */
+export class ServiceUnavailableError extends TrigvError {
+  readonly name = 'ServiceUnavailableError';
+  readonly statusCode = 503;
+  readonly retryAfterMs?: number;
+
+  constructor(message: string, retryAfterMs?: number) {
+    super(message);
     this.retryAfterMs = retryAfterMs;
     Object.setPrototypeOf(this, new.target.prototype);
   }
@@ -107,8 +133,4 @@ export class TimeoutError extends TrigvError {
     super(message);
     Object.setPrototypeOf(this, new.target.prototype);
   }
-}
-
-export function isMonthlyLimitMessage(message: string): boolean {
-  return message.includes('Monthly event limit');
 }

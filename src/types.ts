@@ -27,11 +27,11 @@ export interface SendEventParams {
 export interface Event {
   public_id: string;
   event_uuid: string;
-  status: string;
-  level: string;
+  status: 'pending' | 'sent' | 'failed';
+  level: NotificationLevel;
   event_type: string | null;
   target_device_count: number;
-  received_at: string;
+  received_at: string | null;
 }
 
 export interface SendEventResult {

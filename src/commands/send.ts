@@ -74,7 +74,7 @@ Options:
   --level              info | success | warning | error
   --delivery-urgency   standard | time_sensitive
   --event-type         Free-form event label
-  --image-url          HTTPS image URL
+  --image-url          Image URL
   --url                Destination URL (e.g. deployment details)
   --idempotency-key    Dedup key per workspace
   --base-url           API base URL override

@@ -7,9 +7,11 @@ import {
   AuthenticationError,
   AuthorizationError,
   ConfigError,
+  ConflictError,
   NetworkError,
   NotFoundError,
   RateLimitError,
+  ServiceUnavailableError,
   TimeoutError,
   TrigvError,
   ValidationError,
@@ -51,7 +53,7 @@ Usage:
 
 Global options:
   --json        Output JSON to stdout
-  --base-url    API base URL (default: https://api.trigv.com/api)
+  --base-url    API base URL (default: https://api.trigv.com; a URL ending in /api also works)
   -h, --help    Show help
 
 Authentication:
@@ -131,6 +133,22 @@ function errorToJson(error: TrigvError): JsonError {
       status_code: error.statusCode,
     };
   }
+  if (error instanceof ConflictError) {
+    return {
+      ok: false,
+      error: error.message,
+      code: 'conflict',
+      status_code: error.statusCode,
+    };
+  }
+  if (error instanceof ServiceUnavailableError) {
+    return {
+      ok: false,
+      error: error.message,
+      code: 'service_unavailable',
+      status_code: error.statusCode,
+    };
+  }
   if (error instanceof ApiError) {
     return {
       ok: false,
@@ -165,6 +183,8 @@ export function mapErrorToExitCode(error: unknown): number {
     error instanceof AuthorizationError ||
     error instanceof NotFoundError ||
     error instanceof RateLimitError ||
+    error instanceof ConflictError ||
+    error instanceof ServiceUnavailableError ||
     error instanceof ApiError ||
     error instanceof NetworkError ||
     error instanceof TimeoutError
@@ -184,11 +204,12 @@ export function handleError(error: unknown, json: boolean): number {
   if (json) {
     const payload =
       error instanceof TrigvError
-        ? errorToJson(error)
+        ? { ...errorToJson(error), ...(error.requestId ? { request_id: error.requestId } : {}) }
         : { ok: false, error: message, code: 'usage' };
     printJson(payload);
   } else {
-    printHuman(`Error: ${message}`);
+    const requestId = error instanceof TrigvError ? error.requestId : undefined;
+    printHuman(requestId ? `Error: ${message} (request id ${requestId})` : `Error: ${message}`);
   }
 
   return exitCode;
