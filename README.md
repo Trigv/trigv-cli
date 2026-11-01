@@ -1,5 +1,7 @@
 # @trigv/cli
 
+[Docs](https://trigv.com/docs/sdks/cli/) | [API reference](https://trigv.com/docs/api/) | [Free tools](https://trigv.com/tools/) | [Get an API key](https://app.trigv.com/register)
+
 Official Trigv command-line interface. Send notification events from shell scripts, cron jobs, and CI pipelines.
 
 ## What Trigv is

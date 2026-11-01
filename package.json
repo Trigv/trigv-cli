@@ -1,6 +1,6 @@
 {
   "name": "@trigv/cli",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Official Trigv CLI — send notification events from the shell",
   "type": "module",
   "bin": {
@@ -34,7 +34,7 @@
     "type": "git",
     "url": "https://github.com/Trigv/trigv-cli.git"
   },
-  "homepage": "https://github.com/Trigv/trigv-cli#readme",
+  "homepage": "https://trigv.com/docs/sdks/cli/",
   "bugs": {
     "url": "https://github.com/Trigv/trigv-cli/issues"
   },
